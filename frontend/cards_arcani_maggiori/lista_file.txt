@@ -1,0 +1,23 @@
+00_il_matto.jpeg
+01_il_mago.jpeg
+02_la_papessa.jpeg
+03_l_imperatrice.jpeg
+04_l_imperatore.jpeg
+05_il_papa.jpeg
+06_gli_amanti.jpeg
+07_il_carro.jpeg
+08_la_forza.jpeg
+09_l_eremita.jpeg
+10_la_ruota_della_fortuna.jpeg
+11_la_giustizia.jpeg
+12_l_appeso.jpeg
+13_la_morte.jpeg
+14_la_temperanza.jpeg
+15_il_diavolo.jpeg
+16_la_torre.jpeg
+17_la_stella.jpeg
+18_la luna.jpeg
+19_il_sole.jpeg
+20_il_giudizio.jpeg
+21_il_mondo.jpeg
+lista_file.txt

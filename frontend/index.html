@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tarocchi Vocali - Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #fafafa;
+      padding: 50px;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 40px;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 20px;
+      margin: 15px;
+      cursor: pointer;
+      border-radius: 10px;
+      border: 2px solid #444;
+      background-color: #ffd966;
+    }
+    #explainBtn {
+      display: block;
+      margin: 0 auto 40px auto;
+      background-color: #ffcc66;
+      font-weight: bold;
+    }
+    .mode-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔮 Benvenuto nei Tarocchi Vocali</h1>
+
+  <button id="explainBtn">🎧 Spiegazione</button>
+
+  <div class="mode-buttons">
+    <button onclick="location.href='index_3carte_en.html'">🃏 Three cards reading</button>
+    <button onclick="location.href='index_3carte_it.html'">🔮 Lettura Tre Carte</button>
+  </div>
+
+  <p id="output" style="margin-top:30px;font-size:20px;color:#333;">Premi "Spiegazione" per ascoltare le istruzioni.</p>
+
+  <script type="module">
+    async function playWithAzureTTS(text) {
+      const response = await fetch("/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        console.error("Errore TTS Azure:", await response.text());
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      await audio.play();
+      return new Promise(resolve => {
+        audio.onended = resolve;
+      });
+    }
+
+    const explainBtn = document.getElementById("explainBtn");
+    const output = document.getElementById("output");
+    const introText = "Benvenuto nel sito dei Tarocchi Vocali. Puoi scegliere la lettura singola per estrarre una carta e ascoltarne l'interpretazione, oppure la lettura a tre carte per seguire il metodo classico, Passato, Presente e Futuro.";
+
+    explainBtn.addEventListener("click", async () => {
+      output.textContent = "🔊 Spiegazione in corso...";
+      await playWithAzureTTS(introText);
+      output.textContent = "Ora scegli una modalità di lettura.";
+    });
+  </script>
+</body>
+</html>

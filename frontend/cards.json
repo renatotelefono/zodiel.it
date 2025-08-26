@@ -1,0 +1,90 @@
+[
+  {
+    "name": "The Fool",
+    "file": "00_il_matto.jpeg"
+  },
+  {
+    "name": "The Magician",
+    "file": "01_il_mago.jpeg"
+  },
+  {
+    "name": "The High Priestess",
+    "file": "02_la_papessa.jpeg"
+  },
+  {
+    "name": "The Empress",
+    "file": "03_l_imperatrice.jpeg"
+  },
+  {
+    "name": "The Emperor",
+    "file": "04_l_imperatore.jpeg"
+  },
+  {
+    "name": "The Hierophant",
+    "file": "05_il_papa.jpeg"
+  },
+  {
+    "name": "The Lovers",
+    "file": "06_gli_amanti.jpeg"
+  },
+  {
+    "name": "The Chariot",
+    "file": "07_il_carro.jpeg"
+  },
+  {
+    "name": "Strength",
+    "file": "08_la_forza.jpeg"
+  },
+  {
+    "name": "The Hermit",
+    "file": "09_l_eremita.jpeg"
+  },
+  {
+    "name": "Wheel of Fortune",
+    "file": "10_la_ruota_della_fortuna.jpeg"
+  },
+  {
+    "name": "Justice",
+    "file": "11_la_giustizia.jpeg"
+  },
+  {
+    "name": "The Hanged Man",
+    "file": "12_l_appeso.jpeg"
+  },
+  {
+    "name": "Death",
+    "file": "13_la_morte.jpeg"
+  },
+  {
+    "name": "Temperance",
+    "file": "14_la_temperanza.jpeg"
+  },
+  {
+    "name": "The Devil",
+    "file": "15_il_diavolo.jpeg"
+  },
+  {
+    "name": "The Tower",
+    "file": "16_la_torre.jpeg"
+  },
+  {
+    "name": "The Star",
+    "file": "17_la_stella.jpeg"
+  },
+  {
+    "name": "The Moon",
+    "file": "18_la luna.jpeg"
+  },
+  {
+    "name": "The Sun",
+    "file": "19_il_sole.jpeg"
+  },
+  {
+    "name": "Judgement",
+    "file": "20_il_giudizio.jpeg"
+  },
+  {
+    "name": "The World",
+    "file": "21_il_mondo.jpeg"
+  }
+]

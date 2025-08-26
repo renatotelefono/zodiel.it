@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3B5CXHRQET"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-FBC74HR7LX');
+  </script>
+
+  <meta charset="UTF-8" />
+  <title>Tarocchi Gratis Online - Lettura a Tre Carte</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- SEO -->
+  <meta name="description" content="Scopri la lettura dei tarocchi a tre carte online. Interpretazione gratuita del passato, presente e futuro con i tarocchi.">
+  <meta name="keywords" content="tarocchi, lettura tarocchi, tarocchi gratis, tarocchi tre carte, interpretazione tarocchi, cartomanzia, arcani maggiori">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #fafafa;
+      padding: 30px;
+    }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    h2 { font-size: 20px; margin-bottom: 20px; color: #555; }
+    p.intro { max-width: 700px; margin: 0 auto 30px; font-size: 17px; line-height: 1.6; color: #333; }
+    button {
+      padding: 12px 24px;
+      font-size: 18px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    .board {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 30px;
+    }
+    .slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .card {
+      width: 180px;
+      height: 280px;
+      border: 2px solid #444;
+      border-radius: 8px;
+      object-fit: cover;
+      opacity: 0.3;
+      background: #ddd;
+      transition: transform 0.5s ease;
+    }
+    .card.visible { opacity: 1; background: none; }
+    .card.reversed { transform: rotate(180deg); }
+    #output { margin-top: 20px; font-size: 20px; color: #333; }
+    #cardMarkdown {
+      max-width: 600px;
+      margin: 20px auto;
+      text-align: left;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #333;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      opacity: 0;
+      transition: opacity 0.8s ease-in;
+    }
+    #cardMarkdown.visible { opacity: 1; }
+    .error { color: red; font-weight: bold; }
+    #resetBtn { display:none; margin-top:20px; background:#4caf50; color:white; border:none; }
+    #savePdfBtn { display:none; margin-top:12px; background:#1976d2; color:white; border:none; }
+  </style>
+
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- jsPDF per generare PDF -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <h1>🔮 Lettura dei Tarocchi - Tre Carte</h1>
+  <h2>Scopri il significato dei tarocchi online: passato, presente e futuro</h2>
+
+  <p class="intro">
+    Benvenuto nella lettura dei <strong>tarocchi online</strong>. Con il metodo delle tre carte
+    puoi ottenere un’interpretazione chiara e semplice del tuo passato, presente e futuro.
+    I <em>tarocchi</em> sono uno strumento antico di divinazione e crescita personale:
+    scegli le carte e scopri i loro messaggi.
+  </p>
+
+  <button id="explainBtn">🎧 Spiegazione</button>
+  <p id="output">Premi i pulsanti per iniziare a rivelare le carte.</p>
+
+  <div class="board">
+    <div class="slot">
+      <img id="cardLeft" class="card" src="" alt="Tarocchi - Carta Sinistra, il Passato" />
+      <button id="btnLeft">🎤 Carta Sinistra, il Passato</button>
+    </div>
+    <div class="slot">
+      <img id="cardCenter" class="card" src="" alt="Tarocchi - Carta Centrale, il Presente" />
+      <button id="btnCenter" disabled>🎤 Carta Centrale, il Presente</button>
+    </div>
+    <div class="slot">
+      <img id="cardRight" class="card" src="" alt="Tarocchi - Carta Destra, il Futuro" />
+      <button id="btnRight" disabled>🎤 Carta Destra, il Futuro</button>
+    </div>
+  </div>
+
+  <button id="interpretBtn" style="display:none; margin-top:30px;">
+    🔮 Leggi Interpretazione
+  </button>
+
+  <div id="cardMarkdown"></div>
+
+  <button id="savePdfBtn">📄 Scarica PDF</button>
+  <button id="resetBtn">🔄 Nuova Lettura</button>
+
+  <!-- SCRIPT -->
+  <script type="module">
+    /* Tutto il JavaScript del tuo file originale */
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    const btnLeft = document.getElementById('btnLeft');
+    const btnCenter = document.getElementById('btnCenter');
+    const btnRight = document.getElementById('btnRight');
+    const interpretBtn = document.getElementById('interpretBtn');
+    const explainBtn = document.getElementById('explainBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const savePdfBtn = document.getElementById('savePdfBtn');
+    const output = document.getElementById('output');
+    const cardMarkdown = document.getElementById('cardMarkdown');
+
+    const cardLeft = document.getElementById('cardLeft');
+    const cardCenter = document.getElementById('cardCenter');
+    const cardRight = document.getElementById('cardRight');
+
+    let cards = [];
+    let availableCards = [];
+    let selectedCards = [];
+    const pdfSections = [];
+
+    const introText = "Benvenuto nella lettura classica a tre carte. Premi i pulsanti in ordine per rivelare la carta sinistra, la carta centrale e la carta destra. Alla fine leggerò la loro interpretazione. Se la carta è rovesciata pronuncia 'rovesciata' o 'rivoltata'.";
+
+    async function loadCards() {
+      const response = await fetch('/cards_it.json');
+      cards = await response.json();
+      availableCards = [...cards];
+    }
+
+    async function playWithAzureTTS(text) {
+      const response = await fetch("/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          voice: "it-IT-IsabellaNeural"
+        })
+      });
+
+      if (!response.ok) {
+        console.error("Errore TTS Azure:", await response.text());
+        return;
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      await audio.play();
+      return new Promise(resolve => { audio.onended = resolve; });
+    }
+
+    function normalizeName(name) {
+      return name.toLowerCase()
+        .replace(/['’]/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim();
+    }
+
+    function normalizeFileName(name) {
+      return name.toLowerCase()
+        .replace(/['’]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+    }
+
+    async function recognizeCard(button, slotImg, nextButton, phase) {
+      if (!SpeechRecognition) {
+        alert("❌ Il tuo browser non supporta la Web Speech API");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = "it-IT";
+      recognition.interimResults = false;
+
+      output.textContent = "🎧 Sto ascoltando...";
+      recognition.start();
+
+      recognition.addEventListener("result", async (event) => {
+        const originalTranscript = event.results[0][0].transcript.toLowerCase();
+        console.log("🎤 Riconosciuto:", originalTranscript);
+
+        let transcript = originalTranscript;
+        if (transcript.includes("papà")) transcript = transcript.replace("papà","papa");
+
+        const isReversed = ["rovesciato","rovesciata","rivoltato","rivoltata"]
+                          .some(k => transcript.includes(k));
+
+        const cleanedTranscript = normalizeName(
+          transcript.replace(/rovesciat[oa]/g,"").replace(/rivoltat[oa]/g,"")
+        );
+
+        output.innerHTML = `🎤 Hai detto: <strong>${transcript}</strong>`;
+
+        const index = availableCards.findIndex(c =>
+          cleanedTranscript.includes(normalizeName(c.name))
+        );
+
+        if (index === -1) {
+          output.innerHTML += `<br><span class="error">Carta non trovata. Premi di nuovo per riprovare.</span>`;
+          return;
+        }
+
+        const card = availableCards.splice(index, 1)[0];
+        selectedCards.push({ ...card, position: phase, reversed: isReversed });
+
+        slotImg.src = '/cards_arcani_maggiori/' + card.file;
+        slotImg.onload = () => {
+          slotImg.classList.add('visible');
+          if (isReversed) slotImg.classList.add('reversed');
+        };
+
+        button.disabled = true;
+
+        const phraseMap = { left: "il passato è ", center: "il presente è ", right: "il futuro è " };
+        await playWithAzureTTS(phraseMap[phase] + card.name + (isReversed ? " rovesciata" : ""));
+
+        if (nextButton) nextButton.disabled = false;
+        if (selectedCards.length === 3) {
+          interpretBtn.style.display = 'block';
+          output.textContent = "Tutte le carte sono state rivelate! Premi per leggere l'interpretazione.";
+        }
+      });
+
+      recognition.addEventListener("end", () => {
+        if (selectedCards.length < 3 && !button.disabled) {
+          output.innerHTML += "<br>🎤 Pronto a riprovare.";
+        }
+      });
+    }
+
+    btnLeft.addEventListener('click', () => recognizeCard(btnLeft, cardLeft, btnCenter, "left"));
+    btnCenter.addEventListener('click', () => recognizeCard(btnCenter, cardCenter, btnRight, "center"));
+    btnRight.addEventListener('click', () => recognizeCard(btnRight, cardRight, null, "right"));
+
+    explainBtn.addEventListener('click', async () => {
+      output.textContent = "🔊 Spiegazione in corso...";
+      await playWithAzureTTS(introText);
+      output.textContent = "Pronto per iniziare la lettura.";
+    });
+
+    function cleanForTTS(text) {
+      return text.replace(/^#+\s*/gm, "")
+        .replace(/[*_>\-]/g,"")
+        .replace(/\s+/g," ")
+        .trim();
+    }
+
+    function extractSection(mdText, phase) {
+      const sectionMap = { left: "passato", center: "presente", right: "futuro" };
+      const keyword = sectionMap[phase];
+
+      const normalized = mdText.replace(/\r\n/g, "\n");
+      const regex = new RegExp(
+        `(^|\\n)##\\s*significato\\s+nel\\s+${keyword}[\\s\\S]*?(?=\\n##|$)`,
+        "i"
+      );
+
+      const match = normalized.match(regex);
+      if (!match) return "";
+
+      let section = match[0];
+      section = section.replace(/^##.*$/gim, "");
+      section = section
+        .split("\n")
+        .filter(line => line.trim() !== "" && line.trim() !== "---")
+        .join("\n")
+        .trim();
+
+      return section;
+    }
+
+    interpretBtn.addEventListener('click', async () => {
+      cardMarkdown.innerHTML = "";
+      pdfSections.length = 0;
+
+      for (let card of selectedCards) {
+        const baseName = normalizeFileName(card.name);
+        const markdownFile = baseName + (card.reversed ? "_r.md" : ".md");
+
+        const res = await fetch('/des_a_m_3carte_it/' + markdownFile);
+        if (!res.ok) {
+          cardMarkdown.innerHTML += `<p class="error">File non trovato per ${card.name}</p>`;
+          continue;
+        }
+
+        let mdText = await res.text();
+        if (mdText.startsWith("<!DOCTYPE html>")) {
+          cardMarkdown.innerHTML += `<p class="error">File mancante o non valido per ${card.name}</p>`;
+          continue;
+        }
+
+        const section = extractSection(mdText, card.position);
+        if (!section) {
+          cardMarkdown.innerHTML += `<p class="error">Sezione non trovata per ${card.name}</p>`;
+          continue;
+        }
+
+        const titleHtml = "<h3>" + card.name + (card.reversed ? " (Rovesciata)" : "") + "</h3>";
+        cardMarkdown.innerHTML += titleHtml + marked.parse(section);
+        cardMarkdown.classList.add("visible");
+
+        const spokenText = card.name + (card.reversed ? " rovesciata. " : ". ") + cleanForTTS(section);
+        await playWithAzureTTS(spokenText);
+        await new Promise(resolve => setTimeout(resolve, 600));
+
+        pdfSections.push({
+          title: card.name + (card.reversed ? " (Rovesciata)" : ""),
+          text: cleanForTTS(section)
+        });
+      }
+
+      savePdfBtn.style.display = 'inline-block';
+      resetBtn.style.display = 'inline-block';
+    });
+
+    function getNowForHeader() {
+      const now = new Date();
+      return now.toLocaleString('it-IT', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function getNowForFilename() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const mm = pad(now.getMonth() + 1);
+      const dd = pad(now.getDate());
+      const hh = pad(now.getHours());
+      const mi = pad(now.getMinutes());
+      return `${yyyy}-${mm}-${dd}_${hh}-${mi}`;
+    }
+
+    async function imageToDataURL(imgEl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const reversed = imgEl.classList.contains('reversed');
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          if (reversed) {
+            ctx.translate(w, h);
+            ctx.rotate(Math.PI);
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+
+          try {
+            const url = canvas.toDataURL('image/jpeg', 0.92);
+            resolve(url);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = reject;
+        img.src = imgEl.src;
+      });
+    }
+
+    savePdfBtn.addEventListener('click', async () => {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 40;
+
+        let cursorY = margin;
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(18);
+        doc.text('Lettura dei Tarocchi - Tre Carte', pageW / 2, cursorY, { align: 'center' });
+        cursorY += 24;
+
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(12);
+        doc.text(`Data interpretazione: ${getNowForHeader()}`, pageW / 2, cursorY, { align: 'center' });
+        cursorY += 24;
+
+        const imgs = [cardLeft, cardCenter, cardRight];
+        const imgGap = 18;
+        const targetH = 180;
+        const targetW = 115;
+        const totalW = targetW * 3 + imgGap * 2;
+        let imgX = (pageW - totalW) / 2;
+
+        for (const el of imgs) {
+          if (el && el.src) {
+            const dataUrl = await imageToDataURL(el);
+            doc.addImage(dataUrl, 'JPEG', imgX, cursorY, targetW, targetH);
+          }
+          imgX += targetW + imgGap;
+        }
+        cursorY += targetH + 20;
+
+        doc.setDrawColor(180);
+        doc.setLineWidth(0.5);
+        doc.line(margin, cursorY, pageW - margin, cursorY);
+
+        const textAreaW = pageW - margin * 2;
+        const lineHeight = 16;
+
+        function addWrappedText(text, startY) {
+          doc.setFont('Times', 'normal');
+          doc.setFontSize(12);
+          const lines = doc.splitTextToSize(text, textAreaW);
+          let y = startY;
+
+          for (const line of lines) {
+            if (y + lineHeight > pageH - margin) {
+              doc.addPage();
+              y = margin;
+            }
+            doc.text(line, margin, y);
+            y += lineHeight;
+          }
+          return y;
+        }
+
+        for (let i = 0; i < pdfSections.length; i++) {
+          doc.addPage();
+          let y = margin;
+
+          doc.setFont('Times', 'bold');
+          doc.setFontSize(16);
+          doc.text(pdfSections[i].title, margin, y);
+          y += 22;
+
+          addWrappedText(pdfSections[i].text, y);
+        }
+
+        const filename = `lettura_tarocchi_${getNowForFilename()}.pdf`;
+        doc.save(filename);
+      } catch (err) {
+        console.error('Errore generazione PDF:', err);
+        alert('Si è verificato un errore durante la creazione del PDF.');
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      availableCards = [...cards];
+      selectedCards = [];
+      pdfSections.length = 0;
+      cardMarkdown.innerHTML = "";
+      cardMarkdown.classList.remove("visible");
+      output.textContent = "Premi i pulsanti per iniziare a rivelare le carte.";
+
+      [cardLeft, cardCenter, cardRight].forEach(img => {
+        img.src = "";
+        img.className = "card";
+      });
+
+      btnLeft.disabled = false;
+      btnCenter.disabled = true;
+      btnRight.disabled = true;
+      interpretBtn.style.display = "none";
+      savePdfBtn.style.display = "none";
+      resetBtn.style.display = "none";
+    });
+
+    loadCards();
+  </script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3B5CXHRQET"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-FBC74HR7LX');
+</script>
+
+  <meta charset="UTF-8" />
+  <title>Tarot Reading - Three Cards</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #fafafa;
+      padding: 30px;
+    }
+    h1 { font-size: 28px; margin-bottom: 20px; }
+    button {
+      padding: 12px 24px;
+      font-size: 18px;
+      margin: 10px;
+      cursor: pointer;
+    }
+    .board {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 30px;
+    }
+    .slot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .card {
+      width: 180px;
+      height: 280px;
+      border: 2px solid #444;
+      border-radius: 8px;
+      object-fit: cover;
+      opacity: 0.3;
+      background: #ddd;
+      transition: transform 0.5s ease;
+    }
+    .card.visible { opacity: 1; background: none; }
+    .card.reversed { transform: rotate(180deg); }
+    #output { margin-top: 20px; font-size: 20px; color: #333; }
+    #cardMarkdown {
+      max-width: 600px;
+      margin: 20px auto;
+      text-align: left;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #333;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      opacity: 0;
+      transition: opacity 0.8s ease-in;
+    }
+    #cardMarkdown.visible { opacity: 1; }
+    .error { color: red; font-weight: bold; }
+    #resetBtn { display:none; margin-top:20px; background:#4caf50; color:white; border:none; }
+    #savePdfBtn { display:none; margin-top:12px; background:#1976d2; color:white; border:none; }
+  </style>
+
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- jsPDF for PDF generation -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <h1>🔮 Tarot Reading - Three Cards</h1>
+
+  <button id="explainBtn">🎧 Explanation</button>
+  <p id="output">Press the buttons to start revealing the cards.</p>
+
+  <div class="board">
+    <div class="slot">
+      <img id="cardLeft" class="card" src="" alt="Left Card" />
+      <button id="btnLeft">🎤 Left Card — The Past</button>
+    </div>
+    <div class="slot">
+      <img id="cardCenter" class="card" src="" alt="Center Card" />
+      <button id="btnCenter" disabled>🎤 Center Card — The Present</button>
+    </div>
+    <div class="slot">
+      <img id="cardRight" class="card" src="" alt="Right Card" />
+      <button id="btnRight" disabled>🎤 Right Card — The Future</button>
+    </div>
+  </div>
+
+  <button id="interpretBtn" style="display:none; margin-top:30px;">
+    🔮 Read Interpretation
+  </button>
+
+  <div id="cardMarkdown"></div>
+
+  <button id="savePdfBtn">📄 Download PDF</button>
+  <button id="resetBtn">🔄 New Reading</button>
+
+  <script type="module">
+    // ===== Settings =====
+    const STT_LANG  = "en-US"; // speech recognition language
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    // ===== DOM =====
+    const btnLeft = document.getElementById('btnLeft');
+    const btnCenter = document.getElementById('btnCenter');
+    const btnRight = document.getElementById('btnRight');
+    const interpretBtn = document.getElementById('interpretBtn');
+    const explainBtn = document.getElementById('explainBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const savePdfBtn = document.getElementById('savePdfBtn');
+    const output = document.getElementById('output');
+    const cardMarkdown = document.getElementById('cardMarkdown');
+
+    const cardLeft = document.getElementById('cardLeft');
+    const cardCenter = document.getElementById('cardCenter');
+    const cardRight = document.getElementById('cardRight');
+
+    // ===== State =====
+    let cards = [];
+    let availableCards = [];
+    let selectedCards = [];
+    const pdfSections = []; // { title, text } for PDF pages
+
+    const introText = "Welcome to the classic three-card reading. Press the buttons in order to reveal the left card, the center card, and the right card. At the end, I will read their interpretation. If the card is reversed, say 'reversed'.";
+
+    async function loadCards() {
+      const response = await fetch('/cards.json'); // aggiorna se usi un file diverso per EN
+      cards = await response.json();
+      availableCards = [...cards];
+    }
+
+    // ===== TTS queue to avoid overlap =====
+    let ttsQueue = Promise.resolve();
+
+    function speak(text) {
+      // serialize playback: each piece waits for the previous one to end
+      ttsQueue = ttsQueue.then(() => playOnce(text)).catch(() => {});
+      return ttsQueue;
+    }
+
+    async function playOnce(text) {
+      try {
+        const response = await fetch("/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: "en-US-JennyNeural" })
+        });
+        if (!response.ok) return;
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        await new Promise(resolve => {
+          audio.onended = resolve;
+          audio.onerror = resolve;             // never block UI
+          audio.play().catch(() => resolve()); // if play() blocked, resolve immediately
+        });
+      } catch {
+        // swallow errors: don't break the flow
+      }
+    }
+
+    function normalizeName(name) {
+      return name.toLowerCase()
+        .replace(/['’]/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/[^a-z0-9 ]/g, "")
+        .trim();
+    }
+
+    function normalizeFileName(name) {
+      return name.toLowerCase()
+        .replace(/['’]/g, "_")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+    }
+
+    async function recognizeCard(button, slotImg, nextButton, phase) {
+      if (!SpeechRecognition) {
+        alert("❌ Your browser does not support the Web Speech API");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = STT_LANG;
+      recognition.interimResults = false;
+
+      output.textContent = "🎧 Listening...";
+      recognition.start();
+
+      recognition.addEventListener("result", async (event) => {
+        const originalTranscript = event.results[0][0].transcript.toLowerCase();
+        console.log("🎤 Recognized:", originalTranscript);
+
+        let transcript = originalTranscript;
+
+        // Detect "reversed" with common synonyms
+        const reversedWords = ["reversed", "upside down", "upside-down", "inverted"];
+        const isReversed = reversedWords.some(k => transcript.includes(k));
+
+        // Clean transcript by removing reversed keywords before matching the card name
+        let cleanedTranscript = transcript;
+        for (const pat of [/(^|\s)reversed(\s|$)/g, /upside[- ]down/g, /inverted/g]) {
+          cleanedTranscript = cleanedTranscript.replace(pat, " ");
+        }
+        cleanedTranscript = normalizeName(cleanedTranscript);
+
+        output.innerHTML = `🎤 You said: <strong>${transcript}</strong>`;
+
+        const index = availableCards.findIndex(c =>
+          cleanedTranscript.includes(normalizeName(c.name))
+        );
+
+        if (index === -1) {
+          output.innerHTML += `<br><span class="error">Card not found. Press again to retry.</span>`;
+          return;
+        }
+
+        const card = availableCards.splice(index, 1)[0];
+        selectedCards.push({ ...card, position: phase, reversed: isReversed });
+
+        slotImg.src = '/cards_arcani_maggiori/' + card.file;
+        slotImg.onload = () => {
+          slotImg.classList.add('visible');
+          if (isReversed) slotImg.classList.add('reversed');
+        };
+
+        button.disabled = true;
+
+        const phraseMap = { left: "The past is ", center: "The present is ", right: "The future is " };
+        await speak(phraseMap[phase] + card.name + (isReversed ? " reversed" : ""));
+
+        if (nextButton) nextButton.disabled = false;
+        if (selectedCards.length === 3) {
+          interpretBtn.style.display = 'block';
+          output.textContent = "All cards have been revealed! Press to read the interpretation.";
+        }
+      });
+
+      recognition.addEventListener("end", () => {
+        if (selectedCards.length < 3 && !button.disabled) {
+          output.innerHTML += "<br>🎤 Ready to try again.";
+        }
+      });
+    }
+
+    btnLeft.addEventListener('click', () => recognizeCard(btnLeft, cardLeft, btnCenter, "left"));
+    btnCenter.addEventListener('click', () => recognizeCard(btnCenter, cardCenter, btnRight, "center"));
+    btnRight.addEventListener('click', () => recognizeCard(btnRight, cardRight, null, "right"));
+
+    explainBtn.addEventListener('click', async () => {
+      output.textContent = "🔊 Playing explanation...";
+      await speak(introText);
+      output.textContent = "Ready to start the reading.";
+    });
+
+    function cleanForTTS(text) {
+      return text.replace(/^#+\s*/gm, "")
+        .replace(/[*_>\-]/g,"")
+        .replace(/\s+/g," ")
+        .trim();
+    }
+
+    // ===== Section extractor (EN first, falls back to IT) =====
+    function extractSection(mdText, phase) {
+      const attempts = [
+        { // English headings
+          map: { left: "past", center: "present", right: "future" },
+          regexFor: (kw) => new RegExp(`(^|\\n)##\\s*meaning\\s+in\\s+the\\s+${kw}[\\s\\S]*?(?=\\n##|$)`, "i")
+        },
+        { // Italian headings (fallback)
+          map: { left: "passato", center: "presente", right: "futuro" },
+          regexFor: (kw) => new RegExp(`(^|\\n)##\\s*significato\\s+nel\\s+${kw}[\\s\\S]*?(?=\\n##|$)`, "i")
+        }
+      ];
+
+      const normalized = mdText.replace(/\r\n/g, "\n");
+
+      for (const att of attempts) {
+        const keyword = att.map[phase];
+        const m = normalized.match(att.regexFor(keyword));
+        if (m) {
+          let section = m[0];
+          section = section.replace(/^##.*$/gim, ""); // strip headings
+          section = section
+            .split("\n")
+            .filter(line => line.trim() !== "" && line.trim() !== "---")
+            .join("\n")
+            .trim();
+          return section;
+        }
+      }
+      return "";
+    }
+
+    // ===== Interpretation flow (with TTS queue + safe buttons) =====
+    interpretBtn.addEventListener('click', async () => {
+      cardMarkdown.innerHTML = "";
+      pdfSections.length = 0;
+      interpretBtn.disabled = true;
+
+      try {
+        for (let card of selectedCards) {
+          const baseName = normalizeFileName(card.name);
+          // file senza suffisso; directory inglese separata
+          const markdownFile = baseName + (card.reversed ? "_r.md" : ".md");
+
+          console.log("📄 Loading file:", markdownFile);
+
+          const res = await fetch('/des_a_m_3carte_en/' + markdownFile);
+          if (!res.ok) {
+            cardMarkdown.innerHTML += `<p class="error">File not found for ${card.name}</p>`;
+            continue;
+          }
+
+          let mdText = await res.text();
+          if (mdText.startsWith("<!DOCTYPE html>")) {
+            cardMarkdown.innerHTML += `<p class="error">Missing or invalid file for ${card.name}</p>`;
+            continue;
+          }
+
+          const section = extractSection(mdText, card.position);
+          if (!section) {
+            cardMarkdown.innerHTML += `<p class="error">Section not found for ${card.name}</p>`;
+            continue;
+          }
+
+          // Render on screen
+          cardMarkdown.innerHTML +=
+            "<h3>" + card.name + (card.reversed ? " (Reversed)" : "") + "</h3>" +
+            marked.parse(section);
+          cardMarkdown.classList.add("visible");
+
+          // Read (serialized, no overlap)
+          const spokenText =
+            card.name +
+            (card.reversed ? " reversed. " : ". ") +
+            cleanForTTS(section);
+          await speak(spokenText);
+
+          // Optional tiny pause
+          await new Promise(r => setTimeout(r, 400));
+
+          // Save for PDF pages
+          pdfSections.push({
+            title: card.name + (card.reversed ? " (Reversed)" : ""),
+            text: cleanForTTS(section)
+          });
+        }
+      } finally {
+        // Show action buttons regardless of TTS/fetch errors
+        savePdfBtn.style.display = 'inline-block';
+        resetBtn.style.display = 'inline-block';
+        interpretBtn.disabled = false;
+      }
+    });
+
+    // ====== PDF utils ======
+    function getNowForHeader() {
+      const now = new Date();
+      // en-GB for dd/mm/yyyy HH:MM (European style)
+      return now.toLocaleString('en-GB', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    }
+    function getNowForFilename() {
+      const now = new Date();
+      const pad = n => String(n).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      const mm = pad(now.getMonth() + 1);
+      const dd = pad(now.getDate());
+      const hh = pad(now.getHours());
+      const mi = pad(now.getMinutes());
+      return `${yyyy}-${mm}-${dd}_${hh}-${mi}`;
+    }
+
+    // Convert <img> to dataURL; preserve "reversed" by drawing rotated on canvas
+    async function imageToDataURL(imgEl) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; // requires same-origin or proper CORS headers
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const reversed = imgEl.classList.contains('reversed');
+          const w = img.naturalWidth;
+          const h = img.naturalHeight;
+
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          if (reversed) {
+            ctx.translate(w, h);
+            ctx.rotate(Math.PI);
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+
+          try {
+            const url = canvas.toDataURL('image/jpeg', 0.92);
+            resolve(url);
+          } catch (e) {
+            reject(e);
+          }
+        };
+        img.onerror = reject;
+        img.src = imgEl.src;
+      });
+    }
+
+    // ====== PDF generation with correct page breaks ======
+    savePdfBtn.addEventListener('click', async () => {
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'a4' }); // 595 x 842 pt, portrait
+
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 40;
+
+        // --- Page 1: Title + Date + 3 card images ---
+        let y = margin;
+        doc.setFont('Times', 'bold');
+        doc.setFontSize(18);
+        doc.text('Tarot Reading - Three Cards', pageW / 2, y, { align: 'center' });
+        y += 24;
+
+        doc.setFont('Times', 'normal');
+        doc.setFontSize(12);
+        doc.text(`Reading date: ${getNowForHeader()}`, pageW / 2, y, { align: 'center' });
+        y += 24;
+
+        // Card images side-by-side
+        const imgs = [cardLeft, cardCenter, cardRight];
+        const imgGap = 18;
+        const targetH = 180;  // pt
+        const targetW = 115;  // pt
+        const totalW = targetW * 3 + imgGap * 2;
+        let x = (pageW - totalW) / 2;
+
+        for (const el of imgs) {
+          if (el && el.src) {
+            const dataUrl = await imageToDataURL(el);
+            doc.addImage(dataUrl, 'JPEG', x, y, targetW, targetH);
+          }
+          x += targetW + imgGap;
+        }
+        y += targetH + 20;
+
+        doc.setDrawColor(180);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageW - margin, y);
+
+        // --- One page per card: title + wrapped text with auto page breaks ---
+        const textAreaW = pageW - margin * 2;
+        const lineHeight = 16;
+
+        function addWrappedText(text, startY) {
+          doc.setFont('Times', 'normal');
+          doc.setFontSize(12);
+          const lines = doc.splitTextToSize(text, textAreaW);
+          let yy = startY;
+
+          for (const line of lines) {
+            if (yy + lineHeight > pageH - margin) {
+              doc.addPage();
+              yy = margin;
+            }
+            doc.text(line, margin, yy);
+            yy += lineHeight;
+          }
+          return yy;
+        }
+
+        for (let i = 0; i < pdfSections.length; i++) {
+          doc.addPage(); // start each card on a fresh page
+          let yy = margin;
+
+          doc.setFont('Times', 'bold');
+          doc.setFontSize(16);
+          doc.text(pdfSections[i].title, margin, yy);
+          yy += 22;
+
+          addWrappedText(pdfSections[i].text, yy);
+        }
+
+        const filename = `tarot_reading_${getNowForFilename()}.pdf`;
+        doc.save(filename);
+      } catch (err) {
+        console.error('PDF generation error:', err);
+        alert('An error occurred while creating the PDF.');
+      }
+    });
+
+    // ===== Reset =====
+    resetBtn.addEventListener('click', () => {
+      availableCards = [...cards];
+      selectedCards = [];
+      pdfSections.length = 0;
+
+      cardMarkdown.innerHTML = "";
+      cardMarkdown.classList.remove("visible");
+      output.textContent = "Press the buttons to start revealing the cards.";
+
+      [cardLeft, cardCenter, cardRight].forEach(img => {
+        img.src = "";
+        img.className = "card";
+      });
+
+      btnLeft.disabled = false;
+      btnCenter.disabled = true;
+      btnRight.disabled = true;
+      interpretBtn.style.display = "none";
+      savePdfBtn.style.display = "none";
+      resetBtn.style.display = "none";
+    });
+
+    // Init
+    loadCards();
+  </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TTS demo</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      textarea { width: 100%; max-width: 720px; }
+      .row { margin: 1rem 0; display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+      label { font-weight: 600; }
+      select, button { padding: .5rem .75rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Azure TTS — EN/IT</h1>
+
+    <textarea id="text" rows="4" placeholder="Scrivi il testo da leggere...">Ciao! Questa è una prova di sintesi vocale.</textarea>
+
+    <div class="row">
+      <label for="locale">Lingua:</label>
+      <select id="locale">
+        <option value="it-IT" selected>Italiano (it-IT)</option>
+        <option value="en-US">English (en-US)</option>
+      </select>
+
+      <label for="voice">Voce:</label>
+      <select id="voice">
+        <option value="">Predefinita</option>
+        <option value="it-IT-DiegoNeural">it-IT-DiegoNeural</option>
+        <option value="it-IT-ElsaNeural">it-IT-ElsaNeural</option>
+        <option value="en-US-GuyNeural">en-US-GuyNeural</option>
+        <option value="en-US-JennyNeural">en-US-JennyNeural</option>
+      </select>
+
+      <button id="speak">Parla</button>
+    </div>
+
+    <audio id="player" controls></audio>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+      const player = el("player");
+
+      async function speak() {
+        const text = el("text").value.trim();
+        const locale = el("locale").value;
+        const voice = el("voice").value || undefined;
+
+        if (!text) { alert("Inserisci del testo."); return; }
+
+        try {
+          const resp = await fetch("/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text, locale, voice })
+          });
+
+          if (!resp.ok) {
+            const err = await resp.text();
+            throw new Error(err || ("HTTP " + resp.status));
+          }
+
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
+          player.src = url;
+          await player.play();
+        } catch (e) {
+          console.error(e);
+          alert("Errore TTS: " + e.message);
+        }
+      }
+
+      el("speak").addEventListener("click", speak);
+    </script>
+  </body>
+</html>
