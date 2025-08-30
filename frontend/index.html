@@ -51,12 +51,15 @@
   <p id="output" style="margin-top:30px;font-size:20px;color:#333;">Premi "Spiegazione" per ascoltare le istruzioni.</p>
 
   <script type="module">
-    async function playWithAzureTTS(text) {
-      const response = await fetch("/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
+   async function playWithAzureTTS(text) {
+  const response = await fetch("/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      locale: "it-IT"   // forza voce italiana
+    })
+  });
 
       if (!response.ok) {
         console.error("Errore TTS Azure:", await response.text());
